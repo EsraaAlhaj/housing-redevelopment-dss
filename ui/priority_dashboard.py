@@ -95,8 +95,11 @@ def render(session, study) -> None:
         st.subheader("ترتيب أولوية المراجعة")
         st.caption(f"{len(visible)} من {len(projects)} سجلًا · الدرجة الأعلى تعني أولوية أكبر وفق النموذج الحالي. الترتيب محفوظ على مستوى الدراسة عند التصفية.")
         ranking = ranking_table(visible, by_id)
-        selection = st.dataframe(ranking, hide_index=True, use_container_width=True,
+        selection = st.dataframe(ranking[["الترتيب", "المشروع", "الأولوية / 95", "الحالة العامة"]], hide_index=True, use_container_width=True,
                      column_config={
+                         "الترتيب": st.column_config.NumberColumn(width="small"),
+                         "المشروع": st.column_config.TextColumn(width="medium"),
+                         "الحالة العامة": st.column_config.TextColumn(width="small"),
                          "الأولوية / 95": st.column_config.ProgressColumn(min_value=0, max_value=95, format="%.1f"),
                          "اكتمال البيانات %": st.column_config.NumberColumn(format="%.1f%%"),
                      }, height=610, on_select="rerun", selection_mode="single-row", key=f"ranking_select_{study.id}_{query}_{district}_{condition}")

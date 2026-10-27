@@ -80,6 +80,7 @@ footer {{ visibility: hidden; height: 0; }}
   .stButton, .stDownloadButton {{ display:none !important; }}
 }}
 
+h1, h2, h3, h4 {{ text-align:right; }}
 /* Decision workspace */
 .stApp {{ background:#F5F7FA; }}
 html, body, [data-testid="stApp"] p, [data-testid="stApp"] label, [data-testid="stApp"] input, [data-testid="stApp"] button {{ font-family: {FONT_STACK}; }}

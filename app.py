@@ -8,7 +8,7 @@ from ui.common import ensure_active_study, get_db, study_switcher
 from ui.styles import RTL_CSS
 from ui.theme import NAVY, TEAL, TEXT_MUTED
 
-st.set_page_config(page_title="نظام دعم قرار إعادة تطوير الإسكان", layout="wide", page_icon="🏘️")
+st.set_page_config(page_title="نظام دعم قرار إعادة تطوير الإسكان", layout="wide", initial_sidebar_state="collapsed", page_icon="🏘️")
 st.markdown(RTL_CSS, unsafe_allow_html=True)
 
 def main() -> None:
