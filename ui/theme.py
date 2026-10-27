@@ -62,8 +62,18 @@ def apply_chart_theme(fig: go.Figure, height: int | None = None, rtl: bool = Tru
         margin=dict(l=40, r=40, t=50, b=40),
         legend=dict(bgcolor="rgba(0,0,0,0)"),
         hoverlabel=dict(bgcolor=NAVY, font_color="white", font_family=FONT_STACK),
-        title=dict(font=dict(size=15, color=NAVY, family=FONT_STACK)),
     )
+    # Only style layout.title if the figure already carries real title text.
+    # IMPORTANT: title_font=... is just shorthand for title=dict(font=...) —
+    # both make Plotly materialize a layout.title object. If that object is
+    # created with a "font" key but no "text" key (i.e. no title was ever
+    # set), the frontend reads title.text as JS `undefined` and renders the
+    # literal word "undefined" above the chart. None of our charts currently
+    # rely on Plotly's native title (headers are separate st.markdown
+    # elements above the chart), so we must never create that object except
+    # for the few charts that explicitly pass title="..." themselves.
+    if fig.layout.title and fig.layout.title.text:
+        fig.update_layout(title_font=dict(size=15, color=NAVY, family=FONT_STACK))
     if height:
         fig.update_layout(height=height)
     fig.update_xaxes(gridcolor=BORDER, zerolinecolor=BORDER)
@@ -74,26 +84,31 @@ def apply_chart_theme(fig: go.Figure, height: int | None = None, rtl: bool = Tru
 
 
 def section_header(title: str, subtitle: str = "", icon: str = "") -> None:
+    # Built as ONE single-line string deliberately: a multi-line f-string whose
+    # subtitle line goes empty leaves a whitespace-only line in the markup,
+    # which Streamlit's markdown parser treats as a blank line that ends the
+    # HTML block early — the trailing "</div>" then renders as visible literal
+    # text instead of being parsed as HTML. A single line has no blank-line
+    # risk regardless of which parts are empty.
     icon_html = f"<span style='margin-left:8px'>{icon}</span>" if icon else ""
-    st.markdown(
-        f"""<div style="border-right:4px solid {TEAL}; padding:2px 14px; margin:18px 0 10px 0;">
-        <div style="font-size:1.25rem; font-weight:700; color:{NAVY};">{icon_html}{title}</div>
-        {f'<div style="font-size:0.88rem; color:{TEXT_MUTED}; margin-top:2px;">{subtitle}</div>' if subtitle else ''}
-        </div>""",
-        unsafe_allow_html=True,
-    )
+    subtitle_html = (f"<div style='font-size:0.88rem; color:{TEXT_MUTED}; margin-top:2px;'>{subtitle}</div>"
+                      if subtitle else "")
+    html = (f'<div style="border-right:4px solid {TEAL}; padding:2px 14px; margin:18px 0 10px 0;">'
+            f'<div style="font-size:1.25rem; font-weight:700; color:{NAVY};">{icon_html}{title}</div>'
+            f'{subtitle_html}</div>')
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def kpi_card(label: str, value: str, caption: str = "", tone: str = "neutral") -> str:
+    # Single-line construction — see section_header() for why (avoids a
+    # blank-line HTML block termination when caption is empty).
     accent = {"neutral": TEAL, "warning": AMBER, "critical": RED, "navy": NAVY}.get(tone, TEAL)
     cap_html = f"<div style='font-size:0.78rem; color:{TEXT_MUTED}; margin-top:4px;'>{caption}</div>" if caption else ""
-    return f"""
-    <div style="background:{BG_SOFT}; border:1px solid {BORDER}; border-top:3px solid {accent};
-                border-radius:10px; padding:16px 18px; height:100%;">
-      <div style="font-size:0.82rem; color:{TEXT_MUTED}; font-weight:600;">{label}</div>
-      <div style="font-size:1.9rem; font-weight:700; color:{NAVY}; margin-top:4px; direction:ltr; text-align:right;">{value}</div>
-      {cap_html}
-    </div>"""
+    return (f'<div style="background:{BG_SOFT}; border:1px solid {BORDER}; border-top:3px solid {accent}; '
+            f'border-radius:10px; padding:16px 18px; height:100%;">'
+            f'<div style="font-size:0.82rem; color:{TEXT_MUTED}; font-weight:600;">{label}</div>'
+            f'<div style="font-size:1.9rem; font-weight:700; color:{NAVY}; margin-top:4px; direction:ltr; '
+            f'text-align:right;">{value}</div>{cap_html}</div>')
 
 
 def render_kpi_row(items: list[tuple[str, str, str, str]]) -> None:

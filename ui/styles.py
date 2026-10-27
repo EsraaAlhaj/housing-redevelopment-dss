@@ -46,11 +46,23 @@ button[kind="primary"], .stButton>button[kind="primary"] {{
 .app-header {{
   background: linear-gradient(90deg, {NAVY} 0%, {NAVY}E6 100%);
   color: white; padding: 18px 26px; border-radius: 12px; margin-bottom: 14px;
+  border-bottom: 3px solid {TEAL};
 }}
 .app-header .title {{ font-size: 1.35rem; font-weight: 700; color: white; }}
 .app-header .subtitle {{ font-size: 0.9rem; color: #CBD5E1; margin-top: 2px; }}
 
 hr {{ border-color: {BORDER}; }}
+
+/* Hide Streamlit's default chrome (hamburger menu, "Deploy" button, the
+   rainbow top decoration strip, footer) so the app reads as a finished,
+   purpose-built product rather than a generic prototype. The header bar
+   element itself is kept (not display:none) so the sidebar-collapse control
+   on narrow/mobile screens keeps working — only its menu/toolbar contents
+   are hidden. */
+#MainMenu {{ visibility: hidden; }}
+[data-testid="stToolbar"] {{ visibility: hidden; height: 0; }}
+[data-testid="stDecoration"] {{ visibility: hidden; height: 0; }}
+footer {{ visibility: hidden; height: 0; }}
 
 @media print {{
   section[data-testid="stSidebar"] {{ display:none !important; }}
