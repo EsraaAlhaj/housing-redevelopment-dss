@@ -108,20 +108,11 @@ def ensure_active_study(session) -> "Study | None":
 
 def study_switcher(session) -> None:
     studies = study_service.list_studies(session)
-    if not studies:
+    approved = next((s for s in studies if s.name == SCOPE_STUDY_NAME), None)
+    if approved is None:
         return
-    if len(studies) == 1:
-        st.sidebar.caption(studies[0].name)
-        st.session_state["active_study_id"] = studies[0].id
-        return
-    names = {s.id: s.name for s in studies}
-    current = st.session_state.get("active_study_id", studies[0].id)
-    selected = st.sidebar.selectbox(
-        "الدراسة النشطة", options=list(names.keys()),
-        format_func=lambda i: names[i],
-        index=list(names.keys()).index(current) if current in names else 0,
-    )
-    st.session_state["active_study_id"] = selected
+    st.session_state["active_study_id"] = approved.id
+    st.sidebar.caption("نطاق الدراسة المعتمد 30")
 
 
 def load_projects(session, study_id: int, include_archived: bool = False):
