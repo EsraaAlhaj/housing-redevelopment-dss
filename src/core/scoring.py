@@ -279,13 +279,14 @@ def compute_composite(project, indicator_cfgs: list, study, dataset_ctx: dict,
 
     total_weight = sum(w for w in weights.values() if w > 0) or 1.0
     completeness_pct = round(available_weight / total_weight * 100, 1)
-    priority_score = round(weighted_sum / available_weight, 2) if available_weight > 0 else None
+    denominator = 100.0 if settings.get("preserve_original_weights") else available_weight
+    priority_score = round(weighted_sum / denominator, 2) if available_weight > 0 else None
 
     # Reconcile contributions with the same denominator used by the composite.
     # The previous /100 denominator understated contributions with missing data.
     if available_weight > 0:
         contributions = {
-            code: round(result.score * weights.get(code, 0.0) / available_weight, 2)
+            code: round(result.score * weights.get(code, 0.0) / denominator, 2)
             if result.score is not None else None
             for code, result in results.items()
         }

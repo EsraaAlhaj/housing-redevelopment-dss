@@ -33,8 +33,8 @@ def indicator_table(row, indicators) -> pd.DataFrame:
         score = row.get(f"score_{ind.code}")
         rows.append({
             "المؤشر": ind.name_ar,
-            "وزن الدراسة %": ind.weight / total * 100 if total else 0,
-            "الوزن المستخدم %": ind.weight / available * 100 if available and pd.notna(score) else None,
+            "وزن الدراسة %": ind.weight,
+            "الوزن المستخدم %": ind.weight if pd.notna(score) else None,
             "قيمة المصدر": row.get(f"raw_{ind.code}") or "غير متوفر",
             "الدرجة / 100": score,
             "المساهمة بالنقاط": row.get(f"contrib_{ind.code}"),
@@ -50,8 +50,8 @@ def ranking_table(scores, projects) -> pd.DataFrame:
     table["الحالة العامة"] = table.project_id.map(lambda pid: projects[pid].general_condition or "غير متوفر")
     table["القرار المسجّل"] = table.project_id.map(lambda pid: projects[pid].building_decisions or "غير متوفر")
     table["حالة التقييم"] = table.classification.map(STATUS_LABELS_AR)
-    table = table.rename(columns={"rank": "الترتيب", "priority_score": "الأولوية / 100", "completeness_pct": "اكتمال البيانات %"})
-    return table[["الترتيب", "المشروع", "الحي", "الأولوية / 100", "الحالة العامة",
+    table = table.rename(columns={"rank": "الترتيب", "priority_score": "الأولوية / 95", "completeness_pct": "اكتمال البيانات %"})
+    return table[["الترتيب", "المشروع", "الحي", "الأولوية / 95", "الحالة العامة",
                   "القرار المسجّل", "اكتمال البيانات %", "حالة التقييم"]]
 
 
@@ -91,7 +91,7 @@ def render(session, study) -> None:
     ranking = ranking_table(visible, by_id)
     st.dataframe(ranking, hide_index=True, use_container_width=True,
                  column_config={
-                     "الأولوية / 100": st.column_config.ProgressColumn(min_value=0, max_value=100, format="%.1f"),
+                     "الأولوية / 95": st.column_config.ProgressColumn(min_value=0, max_value=95, format="%.1f"),
                      "اكتمال البيانات %": st.column_config.NumberColumn(format="%.1f%%"),
                  }, height=min(520, 40 + 36 * len(ranking)))
     st.caption("النتائج مبدئية: اتصال المرافق لا يقيس كفاءتها، ووجود تعديل لا يثبت أنه غير معتمد. اكتمال البيانات لا يعني توثيق القياس.")
@@ -130,18 +130,18 @@ def render(session, study) -> None:
 
     with st.expander("الأوزان وطريقة احتساب النتيجة", expanded=False):
         weights = pd.DataFrame({"المؤشر": [i.name_ar for i in indicators],
-                                "الوزن النسبي %": [i.weight / sum(j.weight for j in indicators) * 100 for i in indicators]})
+                                "الوزن النسبي %": [i.weight for i in indicators]})
         st.dataframe(weights, hide_index=True, use_container_width=True)
-        st.write("درجة الأولوية = مجموع (درجة المؤشر × وزنه) ÷ مجموع أوزان المؤشرات ذات البيانات المتاحة.")
+        st.write("درجة الأولوية = مجموع (درجة المؤشر × وزنه الأصلي ÷ 100).")
         if "urban_env" in study.settings().get("excluded_indicator_codes", []):
-            st.caption("جودة البيئة العمرانية مستبعدة من النطاق، ولا تُحتسب كبيانات ناقصة. الأوزان الستة مطبّعة من 95 إلى 100؛ النموذج معدّل عن الإطار الأصلي.")
-        st.caption("عند فقد قيمة، يعيد المحرك الحالي توزيع وزنها على المؤشرات المتاحة؛ يظهر الوزن المستخدم لكل مشروع في تفاصيله. التصفية لا تعيد حساب الأوزان أو الكثافة أو ترتيب الدراسة.")
+            st.caption("جودة البيئة العمرانية مستبعدة من النطاق، ولا تُحتسب كبيانات ناقصة. الأوزان الأصلية محفوظة كما هي، ومجموع الأوزان النشطة 95% دون إعادة توزيع.")
+        st.caption("عند فقد قيمة، لا تُحسب مساهمة المؤشر ولا يُعاد توزيع وزنه؛ تصبح الدرجة جزئية وتظهر نسبة اكتمال البيانات. التصفية لا تعيد حساب الأوزان أو الكثافة أو ترتيب الدراسة.")
 
 
 def _detail(project, row, indicators, study) -> None:
     left, right = st.columns([1, 2])
     with left:
-        st.metric("درجة الأولوية / 100", number(row.priority_score))
+        st.metric("درجة الأولوية / 95", number(row.priority_score))
         st.caption(f"الترتيب في الدراسة: {row['rank']} · {STATUS_LABELS_AR.get(row.classification, row.classification)}")
     with right:
         st.markdown("**" + project_label(project) + "**")
@@ -172,7 +172,7 @@ def _compare(scores, indicators, ids, by_id) -> None:
     rows = []
     selected = [scores[scores.project_id == pid].iloc[0] for pid in ids]
     labels = [project_label(by_id[pid]) for pid in ids]
-    for field, label in [("priority_score", "درجة الأولوية / 100"), ("completeness_pct", "اكتمال البيانات %")]:
+    for field, label in [("priority_score", "درجة الأولوية / 95"), ("completeness_pct", "اكتمال البيانات %")]:
         rows.append({"البند": label, **{name: number(row[field]) for name, row in zip(labels, selected)}})
     for field, label in [("n_buildings", "عدد العمارات"), ("n_units", "عدد الوحدات"), ("building_decisions", "القرار المسجّل")]:
         rows.append({"البند": label, **{name: (str(getattr(by_id[pid], field)) if getattr(by_id[pid], field) is not None else "غير متوفر") for name, pid in zip(labels, ids)}})

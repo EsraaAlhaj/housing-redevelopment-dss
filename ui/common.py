@@ -48,7 +48,14 @@ def _bootstrap_initial_study(session) -> None:
     Sheet1 contains 108 records. Sheet2 is a pivot and is never imported.
     The immutable official baseline remains available for comparison.
     """
-    if any(s.name == SCOPE_STUDY_NAME for s in study_service.list_studies(session)):
+    existing = next((s for s in study_service.list_studies(session) if s.name == SCOPE_STUDY_NAME), None)
+    if existing:
+        if not existing.settings().get("preserve_original_weights"):
+            study_service.restore_official_weights(session, existing.id)
+            settings = existing.settings()
+            settings["preserve_original_weights"] = True
+            existing.settings_json = json.dumps(settings, ensure_ascii=False)
+            session.commit()
         return
     if not os.path.exists(SCOPE_FILE):
         raise FileNotFoundError("ملف نطاق الدراسة المعتمد غير موجود: " + SCOPE_FILE)
@@ -72,10 +79,8 @@ def _bootstrap_initial_study(session) -> None:
         for cfg in study_service.list_indicators(session, study.id):
             if cfg.code == "urban_env":
                 cfg.is_active = False
-            else:
-                cfg.weight = cfg.weight / 95 * 100
         settings = study.settings()
-        settings.update({"excluded_indicator_codes": ["urban_env"], "scope_model_version": "six-indicators-v1"})
+        settings.update({"excluded_indicator_codes": ["urban_env"], "scope_model_version": "six-indicators-v1", "preserve_original_weights": True})
         study.settings_json = json.dumps(settings, ensure_ascii=False)
         session.commit()
     except Exception:
