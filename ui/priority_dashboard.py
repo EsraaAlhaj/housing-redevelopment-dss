@@ -147,9 +147,6 @@ def render(session, study) -> None:
                                 "الوزن النسبي %": [i.weight for i in indicators]})
         st.dataframe(weights, hide_index=True, use_container_width=True)
         st.write("درجة الأولوية = مجموع (درجة المؤشر × وزنه الأصلي ÷ 100).")
-        if "urban_env" in study.settings().get("excluded_indicator_codes", []):
-            st.caption("جودة البيئة العمرانية مستبعدة من النطاق، ولا تُحتسب كبيانات ناقصة. الأوزان الأصلية محفوظة كما هي، ومجموع الأوزان النشطة 95% دون إعادة توزيع.")
-        st.caption("عند فقد قيمة، لا تُحسب مساهمة المؤشر ولا يُعاد توزيع وزنه؛ تصبح الدرجة جزئية وتظهر نسبة اكتمال البيانات. التصفية لا تعيد حساب الأوزان أو الكثافة أو ترتيب الدراسة.")
 
 
 def _detail(project, row, indicators, study) -> None:
