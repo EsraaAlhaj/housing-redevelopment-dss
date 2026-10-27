@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+from html import escape
 
 import pandas as pd
 import streamlit as st
@@ -72,29 +73,50 @@ def render(session, study) -> None:
     if scores.empty or not indicators or sum(i.weight for i in indicators) <= 0:
         st.warning("لا توجد نتائج قابلة للعرض. راجع إعدادات المؤشرات.")
         return
-    st.caption(f"{study.name} · السنة المرجعية: {study.reference_year} · {len(projects)} سجلًا · {len(indicators)} مؤشرات نشطة")
-    search_col, district_col = st.columns([2, 1])
+    st.markdown(f'<div class="scope-strip">نطاق الدراسة المعتمد <b>{len(projects)} مشروعًا</b><span>•</span>{len(indicators)} مؤشرات<span>•</span>الأوزان الأصلية · النتيجة من 95</div>', unsafe_allow_html=True)
+    search_col, district_col, condition_col = st.columns([2, 1, 1])
     with search_col:
         query = st.text_input("البحث عن مشروع", placeholder="اسم المشروع أو المعرّف", key=f"priority_search_{study.id}").strip()
     with district_col:
         districts = sorted({p.district for p in projects if p.district})
         district = st.selectbox("الحي", ["كل الأحياء"] + districts, key=f"priority_district_{study.id}")
+    with condition_col:
+        condition = st.selectbox("الحالة العامة", ["كل الحالات"] + sorted({p.general_condition for p in projects if p.general_condition}), key=f"priority_condition_{study.id}")
     visible_ids = {p.id for p in projects if (not query or query in project_label(p))
-                   and (district == "كل الأحياء" or p.district == district)}
+                   and (district == "كل الأحياء" or p.district == district)
+                   and (condition == "كل الحالات" or p.general_condition == condition)}
     visible = scores[scores.project_id.isin(visible_ids)].copy()
     if visible.empty:
         st.info("لا توجد مشروعات تطابق البحث. عدّل الاسم أو الحي.")
         return
 
-    st.subheader("ترتيب أولوية المراجعة")
-    st.caption(f"{len(visible)} من {len(projects)} سجلًا · الدرجة الأعلى تعني أولوية أكبر وفق النموذج الحالي. الترتيب محفوظ على مستوى الدراسة عند التصفية.")
-    ranking = ranking_table(visible, by_id)
-    st.dataframe(ranking, hide_index=True, use_container_width=True,
-                 column_config={
-                     "الأولوية / 95": st.column_config.ProgressColumn(min_value=0, max_value=95, format="%.1f"),
-                     "اكتمال البيانات %": st.column_config.NumberColumn(format="%.1f%%"),
-                 }, height=min(520, 40 + 36 * len(ranking)))
-    st.caption("النتائج مبدئية: اتصال المرافق لا يقيس كفاءتها، ووجود تعديل لا يثبت أنه غير معتمد. اكتمال البيانات لا يعني توثيق القياس.")
+    list_col, detail_col = st.columns([1.45, 1], gap="large")
+    with list_col:
+        st.subheader("ترتيب أولوية المراجعة")
+        st.caption(f"{len(visible)} من {len(projects)} سجلًا · الدرجة الأعلى تعني أولوية أكبر وفق النموذج الحالي. الترتيب محفوظ على مستوى الدراسة عند التصفية.")
+        ranking = ranking_table(visible, by_id)
+        selection = st.dataframe(ranking, hide_index=True, use_container_width=True,
+                     column_config={
+                         "الأولوية / 95": st.column_config.ProgressColumn(min_value=0, max_value=95, format="%.1f"),
+                         "اكتمال البيانات %": st.column_config.NumberColumn(format="%.1f%%"),
+                     }, height=610, on_select="rerun", selection_mode="single-row", key=f"ranking_select_{study.id}_{query}_{district}_{condition}")
+        st.caption("اضغط على صف لعرض ملف المشروع. الدرجة الجزئية تحتاج استكمال البيانات قبل المقارنة.")
+    with detail_col:
+        st.subheader("ملف المشروع")
+        ids = list(visible.project_id)
+        key = f"priority_project_{study.id}"
+        if st.session_state.get(key) not in ids:
+            st.session_state[key] = ids[0]
+        if selection.selection.rows:
+            selected_pid = int(visible.iloc[selection.selection.rows[0]].project_id)
+            selection_token = (query, district, condition, selected_pid)
+            if st.session_state.get(f"last_row_{study.id}") != selection_token:
+                st.session_state[key] = selected_pid
+                st.session_state[f"last_row_{study.id}"] = selection_token
+        pid = st.selectbox("المشروع", ids, format_func=lambda value: project_label(by_id[value]), key=key)
+        project = by_id[pid]
+        row = scores[scores.project_id == pid].iloc[0]
+        _detail(project, row, indicators, study)
 
     with st.expander("مقارنة مشروعين", expanded=False):
         ids = list(visible.project_id)
@@ -107,17 +129,6 @@ def render(session, study) -> None:
             _compare(scores, indicators, picked, by_id)
         else:
             st.caption("اختر مشروعين لعرض الدرجات وبيانات المصدر جنبًا إلى جنب.")
-
-    st.divider()
-    st.subheader("لماذا حصل المشروع على هذه الدرجة؟")
-    ids = list(visible.project_id)
-    key = f"priority_project_{study.id}"
-    if st.session_state.get(key) not in ids:
-        st.session_state[key] = ids[0]
-    pid = st.selectbox("المشروع", ids, format_func=lambda value: project_label(by_id[value]), key=key)
-    project = by_id[pid]
-    row = scores[scores.project_id == pid].iloc[0]
-    _detail(project, row, indicators, study)
 
     st.divider()
     export_left, export_right = st.columns(2)
@@ -139,25 +150,19 @@ def render(session, study) -> None:
 
 
 def _detail(project, row, indicators, study) -> None:
-    left, right = st.columns([1, 2])
-    with left:
-        st.metric("درجة الأولوية / 95", number(row.priority_score))
-        st.caption(f"الترتيب في الدراسة: {row['rank']} · {STATUS_LABELS_AR.get(row.classification, row.classification)}")
-    with right:
-        st.markdown("**" + project_label(project) + "**")
-        st.write(f"{project.district or 'الحي غير متوفر'} · {project.general_condition or 'الحالة غير متوفرة'}")
-        st.write(f"{number(project.n_buildings, 0)} عمارة · {number(project.n_units, 0)} وحدة")
-        age = study.reference_year - project.construction_year if project.construction_year is not None else None
-        st.caption(f"العمر: {number(age, 0)} سنة · اكتمال البيانات: {number(row.completeness_pct)}%")
-    decision = project.building_decisions or "غير متوفر"
-    if row.safety_level == "critical":
-        st.warning(f"القرار المسجّل: {decision}. راجع نص القرار ونطاق العمارات المشمولة به.")
-    else:
-        st.write(f"القرار المسجّل: {decision}")
-    st.dataframe(indicator_table(row, indicators), hide_index=True, use_container_width=True,
-                 column_config={label: st.column_config.NumberColumn(format="%.2f") for label in
-                                ["وزن الدراسة %", "الوزن المستخدم %", "الدرجة / 100", "المساهمة بالنقاط"]})
-    st.caption("المساهمة بالنقاط توضّح نصيب المؤشر من الدرجة النهائية؛ قد يوجد فرق طفيف بسبب التقريب. الخانة الفارغة تعني بيانات غير متوفرة.")
+    age = study.reference_year - project.construction_year if project.construction_year is not None else None
+    st.markdown(f'<div class="project-card"><div class="project-kicker">{escape(project.district or "غير متوفر")} · {escape(project.general_condition or "غير متوفر")}</div><h3>{escape(project_label(project))}</h3><div class="score-number">{number(row.priority_score)}<small> / 95</small></div><div class="project-kicker">الترتيب {row["rank"]} · {STATUS_LABELS_AR.get(row.classification, row.classification)}</div><div class="project-facts"><span><b>{number(project.n_buildings, 0)}</b> عمارة</span><span><b>{number(project.n_units, 0)}</b> وحدة</span><span><b>{number(age, 0)}</b> سنة</span></div></div>', unsafe_allow_html=True)
+    st.caption(f"اكتمال البيانات: {number(row.completeness_pct)}% · اكتمال البيانات لا يعني توثيق القياس")
+    st.markdown(f'<div class="decision-note">القرار الرسمي المسجّل <strong>{escape(project.building_decisions or "غير متوفر")}</strong></div>', unsafe_allow_html=True)
+    st.markdown("**ما الذي يفسّر الدرجة؟**")
+    bars = []
+    for ind in indicators:
+        points = row.get(f"contrib_{ind.code}")
+        width = min(100, max(0, float(points) / ind.weight * 100)) if pd.notna(points) and ind.weight else 0
+        bars.append(f'<div class="indicator-row"><div class="indicator-label"><span>{escape(ind.name_ar)}</span><b>{number(points)} <small>نقطة</small></b></div><div class="bar-track"><div style="width:{width}%"></div></div><div class="indicator-meta">الوزن {ind.weight:g}% · المساهمة القصوى {ind.weight:g} نقطة</div></div>')
+    st.markdown("".join(bars), unsafe_allow_html=True)
+    with st.expander("قيم المؤشرات وتفاصيل الحساب"):
+        st.dataframe(indicator_table(row, indicators), hide_index=True, use_container_width=True)
     missing = [i.name_ar for i in indicators if pd.isna(row.get(f"score_{i.code}"))]
     if missing:
         st.info("يلزم استكمال: " + "، ".join(missing))

@@ -11,7 +11,7 @@ RTL_CSS = f"""
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
 
 html, body, [class*="css"] {{ direction: rtl; font-family: {FONT_STACK}; color: {TEXT}; }}
-.block-container {{ direction: rtl; padding-top: 2rem; max-width: 1280px; padding-bottom: 3rem; }}
+.block-container {{ direction: rtl; padding-top: 2rem; max-width: 1600px; padding-bottom: 3rem; }}
 .decision-heading {{ padding: 12px 0 20px; border-bottom: 1px solid {BORDER}; margin-bottom: 16px; }}
 .decision-heading h1 {{ font-size: 1.85rem; margin: 3px 0 8px; font-weight: 600; }}
 .decision-heading p {{ color: {TEXT_MUTED}; font-size: .95rem; margin: 0; }}
@@ -79,6 +79,36 @@ footer {{ visibility: hidden; height: 0; }}
   header[data-testid="stHeader"] {{ display:none !important; }}
   .stButton, .stDownloadButton {{ display:none !important; }}
 }}
+
+/* Decision workspace */
+.stApp {{ background:#F5F7FA; }}
+html, body, [data-testid="stApp"] p, [data-testid="stApp"] label, [data-testid="stApp"] input, [data-testid="stApp"] button {{ font-family: {FONT_STACK}; }}
+.decision-heading {{ background:#fff; border:1px solid #E2E8F0; border-right:5px solid {TEAL}; border-radius:14px; padding:22px 26px; margin-bottom:4px; }}
+.decision-heading h1 {{ font-size:2rem; font-weight:700; }}
+.scope-strip {{ display:flex; align-items:center; gap:12px; color:#64748B; font-size:.86rem; padding:10px 4px 18px; flex-wrap:wrap; }}
+.scope-strip b {{ color:{NAVY}; }}
+[data-testid="stDataFrame"] {{ background:white; border-radius:12px; }}
+[data-testid="stTextInput"] input {{ direction:rtl; }}
+[data-baseweb="input"], [data-baseweb="select"] > div {{ background:#fff; border-radius:10px; }}
+.project-card {{ background:#fff; border:1px solid #DFE7EC; border-radius:14px; padding:22px; box-shadow:0 3px 14px #142D4E06; }}
+.project-card h3 {{ margin:8px 0; font-size:1.2rem; line-height:1.8; }}
+.project-kicker {{ color:#64748B; font-size:.82rem; }}
+.score-number {{ color:{TEAL}; font-size:2.8rem; font-weight:700; line-height:1.5; }}
+.score-number small {{ font-size:1rem; color:#94A3B8; font-weight:400; }}
+.project-facts {{ display:flex; justify-content:space-between; gap:10px; margin-top:16px; padding-top:14px; border-top:1px solid #E8EDF2; font-size:.8rem; color:#64748B; }}
+.project-facts b {{ display:block; font-size:1.2rem; color:{NAVY}; }}
+.decision-note {{ background:#EDF4F6; border-right:3px solid {TEAL}; padding:12px 16px; border-radius:8px; font-size:.85rem; margin:8px 0 20px; }}
+.decision-note strong {{ display:block; margin-top:4px; color:{NAVY}; }}
+.indicator-row {{ margin:0 0 14px; }}
+.indicator-label {{ display:flex; justify-content:space-between; align-items:center; gap:12px; font-size:.8rem; margin-bottom:6px; }}
+.indicator-label span {{ max-width:78%; }}
+.indicator-label b {{ color:{TEAL}; white-space:nowrap; }}
+.indicator-label small {{ font-size:.65rem; font-weight:400; }}
+.bar-track {{ background:#E3EBEF; height:6px; border-radius:10px; overflow:hidden; }}
+.bar-track div {{ background:{TEAL}; height:100%; border-radius:10px; }}
+.indicator-meta {{ color:#7C8C9C; font-size:.68rem; margin-top:4px; }}
+[data-testid="stExpander"] {{ background:#fff; border-radius:12px; }}
+@media (max-width: 900px) {{ [data-testid="stHorizontalBlock"] {{ flex-wrap:wrap; }} [data-testid="stColumn"] {{ min-width:min(100%, 340px); }} }}
 </style>
 """
 

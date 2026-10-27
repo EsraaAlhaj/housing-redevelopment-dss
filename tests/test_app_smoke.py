@@ -61,7 +61,7 @@ def test_comparison_distinguishes_repeated_names(isolated_app_db):
     session.close()
     at.multiselect[0].set_value(ids).run()
     assert not at.exception
-    compared = at.dataframe[1].value
+    compared = next(d.value for d in at.dataframe if "البند" in d.value.columns)
     assert len(compared.columns) == 3
     assert any("1022" in c for c in compared.columns)
     assert any("1023" in c for c in compared.columns)
