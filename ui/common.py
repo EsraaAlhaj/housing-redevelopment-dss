@@ -50,10 +50,16 @@ def _bootstrap_initial_study(session) -> None:
     """
     existing = next((s for s in study_service.list_studies(session) if s.name == SCOPE_STUDY_NAME), None)
     if existing:
-        if not existing.settings().get("preserve_original_weights"):
+        if existing.settings().get("scope_weight_version") != "strategic-20-v1":
             study_service.restore_official_weights(session, existing.id)
+            for cfg in study_service.list_indicators(session, existing.id):
+                if cfg.code == "strategic":
+                    cfg.weight = 20
+                elif cfg.code == "urban_env":
+                    cfg.is_active = False
             settings = existing.settings()
             settings["preserve_original_weights"] = True
+            settings["scope_weight_version"] = "strategic-20-v1"
             existing.settings_json = json.dumps(settings, ensure_ascii=False)
             session.commit()
         return
@@ -79,8 +85,10 @@ def _bootstrap_initial_study(session) -> None:
         for cfg in study_service.list_indicators(session, study.id):
             if cfg.code == "urban_env":
                 cfg.is_active = False
+            elif cfg.code == "strategic":
+                cfg.weight = 20
         settings = study.settings()
-        settings.update({"excluded_indicator_codes": ["urban_env"], "scope_model_version": "six-indicators-v1", "preserve_original_weights": True})
+        settings.update({"excluded_indicator_codes": ["urban_env"], "scope_model_version": "six-indicators-v1", "preserve_original_weights": True, "scope_weight_version": "strategic-20-v1"})
         study.settings_json = json.dumps(settings, ensure_ascii=False)
         session.commit()
     except Exception:

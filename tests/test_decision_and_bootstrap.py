@@ -70,7 +70,8 @@ def test_corrected_scope_bootstrap_preserves_old_studies(tmp_path, monkeypatch):
     active = [c for c in configs if c.is_active]
     assert len(active) == 6
     assert "urban_env" not in {c.code for c in active}
-    assert sum(c.weight for c in active) == pytest.approx(95)
+    assert sum(c.weight for c in active) == pytest.approx(100)
+    assert next(c.weight for c in active if c.code == "strategic") == 20
     assert sum(i["weight"] for i in OFFICIAL_INDICATORS) == 100
     scores = composite_dataframe(projects, active, current)
     full = scores[scores.completeness_pct == 100]

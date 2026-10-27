@@ -44,7 +44,7 @@ def test_search_and_empty_state(isolated_app_db):
     assert "989" in at.dataframe[0].value.iloc[0]["المشروع"]
     expected = original[original["المشروع"].str.contains("989")].iloc[0]
     assert at.dataframe[0].value.iloc[0]["الترتيب"] == expected["الترتيب"]
-    assert at.dataframe[0].value.iloc[0]["الأولوية / 95"] == expected["الأولوية / 95"]
+    assert at.dataframe[0].value.iloc[0]["الأولوية / 100"] == expected["الأولوية / 100"]
     at.text_input[0].set_value("no-matching-project").run()
     assert not at.exception
     assert not at.dataframe

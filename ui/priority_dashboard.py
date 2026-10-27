@@ -51,8 +51,8 @@ def ranking_table(scores, projects) -> pd.DataFrame:
     table["الحالة العامة"] = table.project_id.map(lambda pid: projects[pid].general_condition or "غير متوفر")
     table["القرار المسجّل"] = table.project_id.map(lambda pid: projects[pid].building_decisions or "غير متوفر")
     table["حالة التقييم"] = table.classification.map(STATUS_LABELS_AR)
-    table = table.rename(columns={"rank": "الترتيب", "priority_score": "الأولوية / 95", "completeness_pct": "اكتمال البيانات %"})
-    return table[["الترتيب", "المشروع", "الحي", "الأولوية / 95", "الحالة العامة",
+    table = table.rename(columns={"rank": "الترتيب", "priority_score": "الأولوية / 100", "completeness_pct": "اكتمال البيانات %"})
+    return table[["الترتيب", "المشروع", "الحي", "الأولوية / 100", "الحالة العامة",
                   "القرار المسجّل", "اكتمال البيانات %", "حالة التقييم"]]
 
 
@@ -73,7 +73,7 @@ def render(session, study) -> None:
     if scores.empty or not indicators or sum(i.weight for i in indicators) <= 0:
         st.warning("لا توجد نتائج قابلة للعرض. راجع إعدادات المؤشرات.")
         return
-    st.markdown(f'<div class="scope-strip">نطاق الدراسة المعتمد <b>{len(projects)} مشروعًا</b><span>•</span>{len(indicators)} مؤشرات<span>•</span>الأوزان الأصلية · النتيجة من 95</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="scope-strip">نطاق الدراسة المعتمد <b>{len(projects)} مشروعًا</b><span>•</span>{len(indicators)} مؤشرات<span>•</span>أوزان الدراسة · النتيجة من 100</div>', unsafe_allow_html=True)
     search_col, district_col, condition_col = st.columns([2, 1, 1])
     with search_col:
         query = st.text_input("البحث عن مشروع", placeholder="اسم المشروع أو المعرّف", key=f"priority_search_{study.id}").strip()
@@ -95,12 +95,12 @@ def render(session, study) -> None:
         st.subheader("ترتيب أولوية المراجعة")
         st.caption(f"{len(visible)} من {len(projects)} سجلًا · الدرجة الأعلى تعني أولوية أكبر وفق النموذج الحالي. الترتيب محفوظ على مستوى الدراسة عند التصفية.")
         ranking = ranking_table(visible, by_id)
-        selection = st.dataframe(ranking[["الترتيب", "المشروع", "الأولوية / 95", "الحالة العامة"]], hide_index=True, use_container_width=True,
+        selection = st.dataframe(ranking[["الترتيب", "المشروع", "الأولوية / 100", "الحالة العامة"]], hide_index=True, use_container_width=True,
                      column_config={
                          "الترتيب": st.column_config.NumberColumn(width="small"),
                          "المشروع": st.column_config.TextColumn(width="medium"),
                          "الحالة العامة": st.column_config.TextColumn(width="small"),
-                         "الأولوية / 95": st.column_config.ProgressColumn(min_value=0, max_value=95, format="%.1f"),
+                         "الأولوية / 100": st.column_config.ProgressColumn(min_value=0, max_value=100, format="%.1f"),
                          "اكتمال البيانات %": st.column_config.NumberColumn(format="%.1f%%"),
                      }, height=610, on_select="rerun", selection_mode="single-row", key=f"ranking_select_{study.id}_{query}_{district}_{condition}")
         st.caption("اضغط على صف لعرض ملف المشروع. الدرجة الجزئية تحتاج استكمال البيانات قبل المقارنة.")
@@ -146,12 +146,12 @@ def render(session, study) -> None:
         weights = pd.DataFrame({"المؤشر": [i.name_ar for i in indicators],
                                 "الوزن النسبي %": [i.weight for i in indicators]})
         st.dataframe(weights, hide_index=True, use_container_width=True)
-        st.write("درجة الأولوية = مجموع (درجة المؤشر × وزنه الأصلي ÷ 100).")
+        st.write("درجة الأولوية = مجموع (درجة المؤشر × وزنه ÷ 100).")
 
 
 def _detail(project, row, indicators, study) -> None:
     age = study.reference_year - project.construction_year if project.construction_year is not None else None
-    st.markdown(f'<div class="project-card"><div class="project-kicker">{escape(project.district or "غير متوفر")} · {escape(project.general_condition or "غير متوفر")}</div><h3>{escape(project_label(project))}</h3><div class="score-number">{number(row.priority_score)}<small> / 95</small></div><div class="project-kicker">الترتيب {row["rank"]} · {STATUS_LABELS_AR.get(row.classification, row.classification)}</div><div class="project-facts"><span><b>{number(project.n_buildings, 0)}</b> عمارة</span><span><b>{number(project.n_units, 0)}</b> وحدة</span><span><b>{number(age, 0)}</b> سنة</span></div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="project-card"><div class="project-kicker">{escape(project.district or "غير متوفر")} · {escape(project.general_condition or "غير متوفر")}</div><h3>{escape(project_label(project))}</h3><div class="score-number">{number(row.priority_score)}<small> / 100</small></div><div class="project-kicker">الترتيب {row["rank"]} · {STATUS_LABELS_AR.get(row.classification, row.classification)}</div><div class="project-facts"><span><b>{number(project.n_buildings, 0)}</b> عمارة</span><span><b>{number(project.n_units, 0)}</b> وحدة</span><span><b>{number(age, 0)}</b> سنة</span></div></div>', unsafe_allow_html=True)
     st.caption(f"اكتمال البيانات: {number(row.completeness_pct)}% · اكتمال البيانات لا يعني توثيق القياس")
     st.markdown(f'<div class="decision-note">القرار الرسمي المسجّل <strong>{escape(project.building_decisions or "غير متوفر")}</strong></div>', unsafe_allow_html=True)
     st.markdown("**ما الذي يفسّر الدرجة؟**")
@@ -177,7 +177,7 @@ def _compare(scores, indicators, ids, by_id) -> None:
     rows = []
     selected = [scores[scores.project_id == pid].iloc[0] for pid in ids]
     labels = [project_label(by_id[pid]) for pid in ids]
-    for field, label in [("priority_score", "درجة الأولوية / 95"), ("completeness_pct", "اكتمال البيانات %")]:
+    for field, label in [("priority_score", "درجة الأولوية / 100"), ("completeness_pct", "اكتمال البيانات %")]:
         rows.append({"البند": label, **{name: number(row[field]) for name, row in zip(labels, selected)}})
     for field, label in [("n_buildings", "عدد العمارات"), ("n_units", "عدد الوحدات"), ("building_decisions", "القرار المسجّل")]:
         rows.append({"البند": label, **{name: (str(getattr(by_id[pid], field)) if getattr(by_id[pid], field) is not None else "غير متوفر") for name, pid in zip(labels, ids)}})
