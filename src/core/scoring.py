@@ -281,6 +281,15 @@ def compute_composite(project, indicator_cfgs: list, study, dataset_ctx: dict,
     completeness_pct = round(available_weight / total_weight * 100, 1)
     priority_score = round(weighted_sum / available_weight, 2) if available_weight > 0 else None
 
+    # Reconcile contributions with the same denominator used by the composite.
+    # The previous /100 denominator understated contributions with missing data.
+    if available_weight > 0:
+        contributions = {
+            code: round(result.score * weights.get(code, 0.0) / available_weight, 2)
+            if result.score is not None else None
+            for code, result in results.items()
+        }
+
     if dominant_missing or priority_score is None:
         classification = "Insufficient Data"
     elif completeness_pct < settings["provisional_completeness_threshold"]:
@@ -334,3 +343,4 @@ def composite_dataframe(projects: list, indicator_cfgs: list, study, weights_ove
         df = df.sort_values(by="priority_score", ascending=False, na_position="last").reset_index(drop=True)
         df.insert(0, "rank", range(1, len(df) + 1))
     return df
+

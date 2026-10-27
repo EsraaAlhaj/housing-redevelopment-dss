@@ -47,37 +47,42 @@ def test_notes_by_project_batches_lookup(db_session):
     assert decision_service.notes_by_project(db_session, []) == {}
 
 
-def test_dual_study_bootstrap_keeps_datasets_separate(tmp_path, monkeypatch):
-    """Fresh install: both the historical 30-project study and the active
-    29-project study get seeded, but as fully independent Study rows — never
-    merged into one project list."""
+def test_corrected_scope_bootstrap_preserves_old_studies(tmp_path, monkeypatch):
+    import pytest
     import src.db.database as dbmod
     from ui import common as ui_common
+    from src.core.scoring import composite_dataframe
+    from src.core.indicators import OFFICIAL_INDICATORS
 
-    db_path = tmp_path / "bootstrap_test.sqlite3"
-    monkeypatch.setattr(dbmod, "DB_URL", f"sqlite:///{db_path}")
+    monkeypatch.setattr(dbmod, "DB_URL", f"sqlite:///{tmp_path}/bootstrap_test.sqlite3")
     monkeypatch.setattr(dbmod, "_engine", None)
     monkeypatch.setattr(dbmod, "_SessionLocal", None)
-
     ui_common._db_ready.clear()
     session = ui_common.get_db()
-
-    studies = study_service.list_studies(session)
-    names = {s.name for s in studies}
-    assert ui_common.STUDY_NAME_29 in names
-    assert ui_common.STUDY_NAME_30 in names
-
-    study_29 = next(s for s in studies if s.name == ui_common.STUDY_NAME_29)
-    study_30 = next(s for s in studies if s.name == ui_common.STUDY_NAME_30)
-    assert study_29.id != study_30.id
-
-    projects_29 = project_service.list_projects(session, study_29.id)
-    projects_30 = project_service.list_projects(session, study_30.id)
-    assert len(projects_29) == 29
-    assert len(projects_30) == 30
-    # Disjoint project rows — confirms the two datasets were never merged.
-    assert set(p.id for p in projects_29).isdisjoint(p.id for p in projects_30)
-
-    # Re-running the bootstrap (e.g. app reload) must not duplicate studies.
+    current = next(s for s in study_service.list_studies(session) if s.name == ui_common.SCOPE_STUDY_NAME)
+    projects = project_service.list_projects(session, current.id)
+    assert len(projects) == 30
+    assert len({p.external_id for p in projects}) == 30
+    assert next(p for p in projects if p.external_id == "989").general_condition == "متهالك"
+    assert sum(p.n_units or 0 for p in projects) == 22160
+    assert sum(p.n_buildings or 0 for p in projects) == 1289
+    configs = study_service.list_indicators(session, current.id)
+    active = [c for c in configs if c.is_active]
+    assert len(active) == 6
+    assert "urban_env" not in {c.code for c in active}
+    assert sum(c.weight for c in active) == pytest.approx(100)
+    assert sum(i["weight"] for i in OFFICIAL_INDICATORS) == 100
+    scores = composite_dataframe(projects, active, current)
+    full = scores[scores.completeness_pct == 100]
+    assert len(full) > 0
+    for row in scores.itertuples():
+        contributions = [getattr(row, "contrib_" + c.code) for c in active]
+        assert sum(v for v in contributions if v is not None and v == v) == pytest.approx(row.priority_score, abs=.04)
+    # Upgrade never edits or combines an existing study.
+    legacy = study_service.create_study(session, ui_common.STUDY_NAME_29, reference_year=2026)
+    project_service.add_project(session, legacy, {"external_id": "legacy", "site_name": "untouched"})
     ui_common._bootstrap_initial_study(session)
     assert len(study_service.list_studies(session)) == 2
+    assert len(project_service.list_projects(session, legacy.id)) == 1
+    assert len(project_service.list_projects(session, current.id)) == 30
+    session.close()

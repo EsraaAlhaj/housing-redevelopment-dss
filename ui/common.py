@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import json
 
 import streamlit as st
 
@@ -16,6 +17,9 @@ SAMPLE_FILE_30 = os.path.join(DATA_DIR, "PortSaid_30_Projects_for_Claude.xlsx")
 
 STUDY_NAME_29 = "بورسعيد - 29 مشروعًا (الدراسة النشطة)"
 STUDY_NAME_30 = "بورسعيد - 30 مشروع (دراسة الحالة الأولى)"
+SCOPE_FILE = os.path.join(DATA_DIR, "PortSaid_Scope_2026-10-27.xlsx")
+SCOPE_STUDY_NAME = "بورسعيد — نطاق الدراسة المعتمد (30 مشروعًا)"
+SCOPE_CONDITIONS = {"متوسط", "ردئ", "متهالك", "ردئ ومتهالك"}
 
 
 @st.cache_resource
@@ -39,33 +43,46 @@ def _seed_study_from_file(session, name: str, description: str, sample_file: str
 
 
 def _bootstrap_initial_study(session) -> None:
-    """Seed the current 29-project study on first run (or on upgrade from an
-    older install that only has the 30-project study). The two datasets are
-    NEVER merged: the previous 30-project study (if present) is left completely
-    untouched as an independent historical study; the 29-project study is a
-    separate, newly created study and becomes the active one."""
-    existing_names = {s.name for s in study_service.list_studies(session)}
+    """Import the corrected 30-record scope as a separate, non-destructive study.
 
-    if STUDY_NAME_29 in existing_names:
-        return  # already bootstrapped — never re-run
-
+    Sheet1 contains 108 records. Sheet2 is a pivot and is never imported.
+    The immutable official baseline remains available for comparison.
+    """
+    if any(s.name == SCOPE_STUDY_NAME for s in study_service.list_studies(session)):
+        return
+    if not os.path.exists(SCOPE_FILE):
+        raise FileNotFoundError("ملف نطاق الدراسة المعتمد غير موجود: " + SCOPE_FILE)
+    with open(SCOPE_FILE, "rb") as f:
+        loaded = load_tabular_file(f.read(), os.path.basename(SCOPE_FILE))
+    df = loaded["sheets"]["Sheet1"]
+    df = df[df["الحالة_العامة_للمبني"].astype(str).str.strip().isin(SCOPE_CONDITIONS)]
+    records = apply_mapping(df, suggest_mapping(list(df.columns)))
+    if len(records) != 30 or len({r["external_id"] for r in records}) != 30:
+        raise ValueError("ملف المصدر لا يطابق نطاق الدراسة المتوقع: 30 معرفًا فريدًا.")
+    study = study_service.create_study(
+        session, SCOPE_STUDY_NAME,
+        "نطاق الدراسة: متوسط، ردئ، متهالك، وردئ ومتهالك. المصدر المعتمد بتاريخ 27 أكتوبر 2026.",
+        2026,
+    )
     try:
-        if not existing_names and os.path.exists(SAMPLE_FILE_30):
-            # Totally fresh install: keep the original 30-project case study available
-            # too, purely for historical continuity, but it is NOT the active study.
-            _seed_study_from_file(
-                session, STUDY_NAME_30,
-                "دراسة الحالة الأولى (30 مشروعًا) — محفوظة كمرجع تاريخي مستقل.",
-                SAMPLE_FILE_30, "Projects_30", "استيراد أولي — 30 مشروع",
-            )
-        if os.path.exists(SAMPLE_FILE_29):
-            _seed_study_from_file(
-                session, STUDY_NAME_29,
-                "مجموعة البيانات المعتمدة حاليًا: 29 مشروعًا (متوسط 25، ردئ 1، ردئ ومتهالك 3).",
-                SAMPLE_FILE_29, "Projects_29", "استيراد أولي — 29 مشروعًا",
-            )
+        project_service.import_records(
+            session, study, records, os.path.basename(SCOPE_FILE),
+            "نطاق الدراسة المعتمد — 30 مشروعًا", "merge",
+        )
+        for cfg in study_service.list_indicators(session, study.id):
+            if cfg.code == "urban_env":
+                cfg.is_active = False
+            else:
+                cfg.weight = cfg.weight / 95 * 100
+        settings = study.settings()
+        settings.update({"excluded_indicator_codes": ["urban_env"], "scope_model_version": "six-indicators-v1"})
+        study.settings_json = json.dumps(settings, ensure_ascii=False)
+        session.commit()
     except Exception:
-        pass  # non-fatal: user can still import manually from لوحة الإدارة
+        session.rollback()
+        session.delete(study)
+        session.commit()
+        raise
 
 
 def get_db():
@@ -80,7 +97,8 @@ def ensure_active_study(session) -> "Study | None":
     if not studies:
         return None
     if "active_study_id" not in st.session_state:
-        st.session_state["active_study_id"] = studies[0].id
+        preferred = next((s for s in studies if s.name == SCOPE_STUDY_NAME), studies[0])
+        st.session_state["active_study_id"] = preferred.id
     study = study_service.get_study(session, st.session_state["active_study_id"])
     if study is None:
         st.session_state["active_study_id"] = studies[0].id
@@ -91,6 +109,10 @@ def ensure_active_study(session) -> "Study | None":
 def study_switcher(session) -> None:
     studies = study_service.list_studies(session)
     if not studies:
+        return
+    if len(studies) == 1:
+        st.sidebar.caption(studies[0].name)
+        st.session_state["active_study_id"] = studies[0].id
         return
     names = {s.id: s.name for s in studies}
     current = st.session_state.get("active_study_id", studies[0].id)
@@ -116,3 +138,4 @@ def load_scores(session, study, weights_override: dict | None = None, include_ar
 
 def active_indicators(session, study_id: int):
     return [i for i in study_service.list_indicators(session, study_id) if i.is_active]
+

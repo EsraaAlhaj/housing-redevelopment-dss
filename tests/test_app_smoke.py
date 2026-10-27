@@ -26,26 +26,46 @@ def isolated_app_db(tmp_path, monkeypatch):
 
 def test_app_boots_without_exceptions(isolated_app_db):
     from streamlit.testing.v1 import AppTest
-    at = AppTest.from_file(APP_PATH, default_timeout=30)
-    at.run()
-    assert not at.exception, f"App raised on first load: {at.exception}"
-    # First load auto-seeds the 29-project active study (Dashboard 1 renders by default).
-    assert any("مشروع" in m.value for m in at.metric) or len(at.metric) == 0
-
-
-def test_dashboard_2_renders_without_exceptions(isolated_app_db):
-    """Switch the sidebar nav to Dashboard 2 (Redevelopment Decision Support) and
-    confirm the heatmap/ranking/comparison/what-if/decision-summary sections all
-    render without raising."""
-    from streamlit.testing.v1 import AppTest
-    at = AppTest.from_file(APP_PATH, default_timeout=60)
-    at.run()
+    at = AppTest.from_file(APP_PATH, default_timeout=60).run()
     assert not at.exception
+    assert not at.sidebar.radio
+    assert len(at.dataframe[0].value) == 30
+    assert len(at.dataframe[1].value) == 6
+    assert "جودة البيئة العمرانية والفراغات العامة" not in set(at.dataframe[1].value["المؤشر"])
 
-    radios = at.sidebar.radio
-    assert radios, "expected a dashboard-nav radio in the sidebar"
-    options = radios[0].options
-    assert len(options) == 2, f"expected exactly 2 top-level dashboards, got: {options}"
 
-    at.sidebar.radio[0].set_value(options[1]).run()
-    assert not at.exception, f"Dashboard 2 raised: {at.exception}"
+def test_search_and_empty_state(isolated_app_db):
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_file(APP_PATH, default_timeout=60).run()
+    original = at.dataframe[0].value.copy()
+    at.text_input[0].set_value("989").run()
+    assert not at.exception
+    assert len(at.dataframe[0].value) == 1
+    assert "989" in at.dataframe[0].value.iloc[0]["المشروع"]
+    expected = original[original["المشروع"].str.contains("989")].iloc[0]
+    assert at.dataframe[0].value.iloc[0]["الترتيب"] == expected["الترتيب"]
+    assert at.dataframe[0].value.iloc[0]["الأولوية / 100"] == expected["الأولوية / 100"]
+    at.text_input[0].set_value("no-matching-project").run()
+    assert not at.exception
+    assert not at.dataframe
+    assert at.info
+
+
+def test_comparison_distinguishes_repeated_names(isolated_app_db):
+    from streamlit.testing.v1 import AppTest
+    from src.db.database import get_session
+    from src.db.models import Project
+    at = AppTest.from_file(APP_PATH, default_timeout=60).run()
+    session = get_session()
+    ids = [p.id for p in session.query(Project).filter(Project.external_id.in_(["1022", "1023"])).all()]
+    session.close()
+    at.multiselect[0].set_value(ids).run()
+    assert not at.exception
+    compared = at.dataframe[1].value
+    assert len(compared.columns) == 3
+    assert any("1022" in c for c in compared.columns)
+    assert any("1023" in c for c in compared.columns)
+    # Changing the scope clears hidden selections and does not change ranking.
+    at.text_input[0].set_value("989").run()
+    assert not at.exception
+    assert at.multiselect[0].value == []

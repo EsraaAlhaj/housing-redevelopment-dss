@@ -1,10 +1,4 @@
-"""Compact sidebar access to study/data/indicator/export management.
-
-The redesign brief limits the app to exactly two main dashboards. Nothing about
-data management, study management, indicator configuration, or export was
-removed — it is all still fully functional, just relocated into modal dialogs
-reachable from the sidebar instead of occupying top-level nav slots.
-"""
+"""Optional management dialogs, separate from the ranking work surface."""
 from __future__ import annotations
 
 import streamlit as st
@@ -51,3 +45,4 @@ def render_sidebar(session, study) -> None:
             _export_dialog(session, study)
         if st.button("🏛️ إنشاء / تبديل الدراسات", use_container_width=True, key="mgmt_studies"):
             _study_management_dialog(session)
+

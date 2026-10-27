@@ -11,7 +11,17 @@ RTL_CSS = f"""
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
 
 html, body, [class*="css"] {{ direction: rtl; font-family: {FONT_STACK}; color: {TEXT}; }}
-.block-container {{ direction: rtl; padding-top: 1.4rem; max-width: 1400px; }}
+.block-container {{ direction: rtl; padding-top: 2rem; max-width: 1280px; padding-bottom: 3rem; }}
+.decision-heading {{ padding: 12px 0 20px; border-bottom: 1px solid {BORDER}; margin-bottom: 16px; }}
+.decision-heading h1 {{ font-size: 1.85rem; margin: 3px 0 8px; font-weight: 600; }}
+.decision-heading p {{ color: {TEXT_MUTED}; font-size: .95rem; margin: 0; }}
+.decision-eyebrow {{ color: {TEAL}; font-size: .85rem; font-weight: 600; }}
+[data-testid="stDataFrame"] {{ border: 1px solid {BORDER}; border-radius: 8px; }}
+[data-testid="stExpander"] {{ border-color: {BORDER}; }}
+@media (max-width: 700px) {{
+  .block-container {{ padding-left: 1rem; padding-right: 1rem; }}
+  .decision-heading h1 {{ font-size: 1.5rem; }}
+}}
 section[data-testid="stSidebar"] {{ direction: rtl; background: {BG_SOFT}; border-left: 1px solid {BORDER}; }}
 div[data-testid="stMetricValue"] {{ direction: ltr; text-align: center; color: {NAVY}; }}
 div[data-testid="stMetricLabel"] {{ justify-content: center; }}
@@ -88,3 +98,4 @@ SAFETY_BADGE = {
 def badge_html(level_key: str, mapping: dict) -> str:
     css_class, label = mapping.get(level_key, ("badge-none", level_key))
     return f'<span class="badge {css_class}">{label}</span>'
+
