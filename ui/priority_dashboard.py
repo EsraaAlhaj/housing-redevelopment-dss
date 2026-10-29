@@ -166,11 +166,7 @@ def _detail(project, row, indicators, study) -> None:
     missing = [i.name_ar for i in indicators if pd.isna(row.get(f"score_{i.code}"))]
     if missing:
         st.info("يلزم استكمال: " + "، ".join(missing))
-    with st.expander("تفسير درجات المؤشرات", expanded=False):
-        for ind in indicators:
-            st.markdown(f"**{ind.name_ar}**")
-            st.write(row.get(f"explain_{ind.code}") or "لا يتوفر تفسير مسجّل.")
-    st.caption("درجة الأولوية توجه المراجعة والدراسات؛ تحديد الترميم أو الإزالة يحتاج تقييمًا هندسيًا ومراجعة القرار الرسمي.")
+
 
 
 def _compare(scores, indicators, ids, by_id) -> None:
