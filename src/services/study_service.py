@@ -122,6 +122,9 @@ def add_custom_indicator(session: Session, study: Study, code: str, name_ar: str
 def restore_official_weights(session: Session, study_id: int) -> None:
     official_by_code = {i["code"]: i["weight"] for i in OFFICIAL_INDICATORS}
     for cfg in list_indicators(session, study_id):
-        if cfg.code in official_by_code:
+        if cfg.code == "urban_env":
+            cfg.is_active = False
+        elif cfg.code in official_by_code:
             cfg.weight = official_by_code[cfg.code]
+            cfg.is_active = True
     session.commit()
