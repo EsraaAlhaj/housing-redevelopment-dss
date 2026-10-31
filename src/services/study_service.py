@@ -127,4 +127,11 @@ def restore_official_weights(session: Session, study_id: int) -> None:
         elif cfg.code in official_by_code:
             cfg.weight = official_by_code[cfg.code]
             cfg.is_active = True
+
+    # Keep the baseline scenario aligned with the current six-indicator framework.
+    baseline = (session.query(Scenario)
+                .filter(Scenario.study_id == study_id, Scenario.is_baseline.is_(True)).first())
+    if baseline:
+        baseline.weights_json = json.dumps(official_by_code, ensure_ascii=False)
+        baseline.description = "الأوزان الأساسية للمؤشرات الستة وفق ملف التقييم الأخير."
     session.commit()
