@@ -138,28 +138,29 @@ def score_density_ratio(n_units, n_buildings, area_feddan, rubric: dict, dataset
 
 
 def score_modification_extent(has_ext, ext_type, floor_change, rubric: dict) -> IndicatorResult:
-    ext_val = _clean(has_ext)
-    type_val = _clean(ext_type) or "لا يوجد"
-    floor_val = _clean(floor_change) or ""
-    type_map = rubric.get("extension_type_map", {})
-    if ext_val is None and type_val == "لا يوجد" and not floor_val:
-        return IndicatorResult("", None, "insufficient", "", "لا توجد بيانات عن الامتدادات أو التعديلات.")
-    score = float(type_map.get(type_val, 0))
-    explanation = f"نوع الامتداد: '{type_val}' → {score:.0f}/100 (مدى التعديل، وليس حكمًا بعدم الشرعية)."
-    kw = rubric.get("reconciliation_keyword", "تصالح")
-    if kw in floor_val:
-        bonus = rubric.get("reconciliation_bonus", 0)
-        score = min(100.0, score + bonus)
-        explanation += f" + تعديل مسجل بالدور الأرضي ({floor_val}) أضاف {bonus} نقطة."
-    return IndicatorResult("", score, "provisional", f"{type_val} | {floor_val or '—'}", explanation)
+    """Workbook rubric: presence of extensions only; legality is not established by this field."""
+    value = _clean(has_ext)
+    if value is None:
+        return IndicatorResult("", None, "insufficient", "", "بيانات وجود الامتدادات غير متوفرة.")
+    normalized = value.strip().lower()
+    no_values = {"لا", "لا يوجد", "غير موجود", "no", "false", "0"}
+    yes_values = {"نعم", "يوجد", "موجود", "yes", "true", "1"}
+    if normalized in no_values:
+        score = 0.0
+    elif normalized in yes_values:
+        score = 100.0
+    else:
+        return IndicatorResult("", None, "insufficient", value, f"قيمة وجود الامتدادات غير واضحة: '{value}'.")
+    return IndicatorResult("", score, "provisional", value,
+        f"{'توجد' if score else 'لا توجد'} امتدادات حسب بيانات المصدر؛ لا يثبت ذلك وحده أن الامتدادات غير معتمدة قانونيًا.")
 
 
 def score_infrastructure_ratio(elec, water, sewage, gas, rubric: dict) -> IndicatorResult:
     fields = [elec, water, sewage, gas]
     connected_values = set(rubric.get("connected_values", ["متصل"]))
     cleaned = [_clean(f) for f in fields]
-    if all(c is None for c in cleaned):
-        return IndicatorResult("", None, "insufficient", "", "لا توجد بيانات اتصال بالمرافق.")
+    if any(c is None for c in cleaned):
+        return IndicatorResult("", None, "insufficient", "", "بيانات اتصال مرفق واحد أو أكثر غير متوفرة؛ لا يُفترض أن البيانات الناقصة تعني عدم الاتصال.")
     total = rubric.get("utilities", 4)
     connected = sum(1 for c in cleaned if c in connected_values)
     score = (connected / total) * 100
