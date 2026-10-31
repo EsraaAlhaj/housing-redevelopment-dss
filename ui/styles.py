@@ -11,7 +11,7 @@ RTL_CSS = f"""
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
 
 html, body, [class*="css"] {{ direction: rtl; font-family: {FONT_STACK}; color: {TEXT}; }}
-.block-container {{ direction: rtl; padding-top: 2rem; max-width: 1600px; padding-bottom: 3rem; }}
+.block-container {{ direction: rtl; padding-top: 1rem; max-width: 1500px; padding-bottom: 2rem; }}
 .decision-heading {{ padding: 12px 0 20px; border-bottom: 1px solid {BORDER}; margin-bottom: 16px; }}
 .decision-heading h1 {{ font-size: 1.85rem; margin: 3px 0 8px; font-weight: 600; }}
 .decision-heading p {{ color: {TEXT_MUTED}; font-size: .95rem; margin: 0; }}
@@ -84,9 +84,17 @@ h1, h2, h3, h4 {{ text-align:right; }}
 /* Decision workspace */
 .stApp {{ background:#F5F7FA; }}
 html, body, [data-testid="stApp"] p, [data-testid="stApp"] label, [data-testid="stApp"] input, [data-testid="stApp"] button {{ font-family: {FONT_STACK}; }}
-.decision-heading {{ background:#fff; border:1px solid #E2E8F0; border-right:5px solid {TEAL}; border-radius:14px; padding:22px 26px; margin-bottom:4px; }}
-.decision-heading h1 {{ font-size:2rem; font-weight:700; }}
-.scope-strip {{ display:flex; align-items:center; gap:12px; color:#64748B; font-size:.86rem; padding:10px 4px 18px; flex-wrap:wrap; }}
+.decision-heading {{ direction:rtl; text-align:right; background:#fff; border:1px solid #E2E8F0; border-right:4px solid {TEAL}; border-radius:10px; padding:16px 22px; margin-bottom:8px; }}
+.decision-heading h1 {{ font-size:1.65rem; font-weight:700; margin:4px 0 6px; line-height:1.6; }}
+.scope-strip {{ direction:rtl; display:flex; align-items:center; gap:10px; color:#64748B; font-size:.82rem; padding:8px 2px 12px; flex-wrap:wrap; }}
+.results-heading, .details-section-title {{ direction:rtl; text-align:right; display:flex; align-items:center; justify-content:space-between; gap:16px; margin:18px 0 8px; }}
+.results-heading h2, .details-section-title h2 {{ font-size:1.2rem; margin:0; line-height:1.7; }}
+.results-heading p, .details-section-title p {{ color:#64748B; font-size:.88rem; margin:2px 0 0; line-height:1.8; }}
+.results-count {{ color:#475569; background:#EAF2F3; border-radius:6px; padding:6px 10px; font-size:.8rem; white-space:nowrap; }}
+[data-testid="stTextInput"] label, [data-testid="stSelectbox"] label {{ display:block; text-align:right; direction:rtl; font-weight:600; }}
+[data-testid="stDataFrame"] {{ direction:rtl; }}
+[data-testid="stDataFrame"] iframe {{ direction:rtl; }}
+[data-testid="stAppViewContainer"] .main .block-container {{ text-align:right; }}
 .scope-strip b {{ color:{NAVY}; }}
 [data-testid="stDataFrame"] {{ background:white; border-radius:12px; }}
 [data-testid="stTextInput"] input {{ direction:rtl; }}
