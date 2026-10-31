@@ -1,6 +1,7 @@
 """Unit tests for the MCDA scoring engine: correctness + 'never fabricate missing data'."""
 from __future__ import annotations
 
+from src.core.indicators import OFFICIAL_INDICATORS
 from src.core.scoring import (
     safety_flag, score_category_map, score_density_ratio, score_infrastructure_ratio,
     score_linear_scale, score_modification_extent, score_threshold_bands,
@@ -48,6 +49,26 @@ def test_threshold_bands_age():
     assert score_threshold_bands(80, bands).score == 100
     r = score_threshold_bands(None, bands)
     assert r.score is None and r.status == "insufficient"
+
+
+def test_threshold_bands_rejects_negative_age():
+    bands = {"bands": [{"min": 0, "max": 20, "score": 20}, {"min": 20, "max": 1000, "score": 100}]}
+    r = score_threshold_bands(-2, bands)
+    assert r.score is None
+    assert r.status == "insufficient"
+    assert "سالب" in r.explanation
+
+
+def test_threshold_bands_rejects_age_outside_configured_ranges():
+    r = score_threshold_bands(120, {"bands": [{"min": 0, "max": 100, "score": 100}]})
+    assert r.score is None
+    assert r.status == "insufficient"
+
+
+def test_structural_condition_accepts_common_arabic_spelling_variants():
+    rubric = next(item["rubric"] for item in OFFICIAL_INDICATORS if item["code"] == "structural")
+    assert score_category_map("رديء", rubric).score == 75
+    assert score_category_map("رديء ومتهالك", rubric).score == 100
 
 
 def test_density_ratio_relative_normalization():
