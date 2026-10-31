@@ -172,7 +172,10 @@ def render(session, study) -> None:
         weights = pd.DataFrame({"المؤشر": [i.name_ar for i in indicators],
                                 "الوزن النسبي %": [i.weight for i in indicators]})
         st.dataframe(weights, hide_index=True, use_container_width=True)
-        st.write("درجة الأولوية = مجموع (درجة المؤشر × وزنه ÷ 100).")
+        if study.settings().get("preserve_original_weights"):
+            st.write("درجة الأولوية = مجموع (درجة كل مؤشر × وزنه) ÷ 100. المؤشرات الناقصة لا تضيف نقاطًا، ولا يُعاد توزيع أوزانها على المؤشرات المتاحة.")
+        else:
+            st.write("درجة الأولوية = مجموع (درجة كل مؤشر × وزنه) ÷ مجموع أوزان المؤشرات المتاحة. عند نقص البيانات، تُعاد موازنة الأوزان المتاحة لحساب الدرجة؛ لذلك راجع نسبة اكتمال البيانات قبل المقارنة.")
 
 
 def _detail(project, row, indicators, study) -> None:
