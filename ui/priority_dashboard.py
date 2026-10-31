@@ -9,7 +9,7 @@ import streamlit as st
 
 from src.services.export_service import to_csv_bytes
 from ui.common import active_indicators, load_projects, load_scores
-from ui.theme import STATUS_LABELS_AR, badge, render_kpi_row
+from ui.theme import STATUS_LABELS_AR, badge
 
 # Matches source values that are date/timestamp artifacts rather than real names
 # (Excel serial dates like "46157", or parsed timestamps like "2026-05-15 00:00:00").
@@ -73,9 +73,9 @@ def render(session, study) -> None:
     projects = load_projects(session, study.id)
     by_id = {p.id: p for p in projects}
     st.markdown(
-        '<div class="decision-heading"><div class="decision-eyebrow">بورسعيد · دعم القرار</div>'
+        '<div class="decision-heading"><div class="decision-eyebrow">نظام دعم القرار · بورسعيد</div>'
         '<h1>أولويات تطوير الإسكان</h1>'
-        '<p>راجع ترتيب المشروعات، وافهم مساهمة كل مؤشر، وقارن قبل تحديد الإجراء.</p></div>',
+        '<p>قارن مشروعات الإسكان حسب درجة الأولوية، وراجع أسباب الترتيب وبيانات كل مشروع قبل اتخاذ القرار.</p></div>',
         unsafe_allow_html=True,
     )
     if not projects:
@@ -103,49 +103,47 @@ def render(session, study) -> None:
         st.info("لا توجد مشروعات تطابق البحث. عدّل الاسم أو الحي.")
         return
 
-    status_counts = visible.classification.value_counts()
-    critical_n = int((visible.safety_level == "critical").sum())
-    flagged_n = critical_n + int((visible.safety_level == "warning").sum())
-    with st.container(border=True):
-        st.caption(f"نظرة عامة على {len(visible)} مشروعًا معروضًا")
-        render_kpi_row([
-            ("موثّق", str(int(status_counts.get("Validated", 0))), "بيانات كافية لاعتماد الدرجة", "neutral"),
-            ("مبدئي", str(int(status_counts.get("Provisional", 0))), "درجة محسوبة من مؤشرات متاحة جزئيًا", "navy"),
-            ("بيانات غير كافية", str(int(status_counts.get("Insufficient Data", 0))), "لا يمكن حساب درجة موثوقة", "neutral"),
-            ("مشروعات بقرار يستدعي الانتباه", str(flagged_n), f"{critical_n} حرج وفق القرار المسجّل", "critical" if critical_n else ("warning" if flagged_n else "neutral")),
-        ])
+    st.markdown(
+        f'<div class="results-heading"><div><h2>ترتيب أولويات المشاريع</h2>'
+        f'<p>تُعرض المشاريع من الأعلى إلى الأقل أولوية وفق النموذج الحالي. اختر صفًا لعرض تفاصيله.</p></div>'
+        f'<span class="results-count">{len(visible)} من {len(projects)} مشروعًا</span></div>',
+        unsafe_allow_html=True,
+    )
+    ranking = ranking_table(visible, by_id)
+    selection = st.dataframe(
+        ranking[["الترتيب", "المشروع", "الحي", "الأولوية / 100", "حالة السلامة", "اكتمال البيانات %"]],
+        hide_index=True,
+        use_container_width=True,
+        column_config={
+            "الترتيب": st.column_config.NumberColumn(width="small"),
+            "المشروع": st.column_config.TextColumn(width="large"),
+            "الحي": st.column_config.TextColumn(width="medium"),
+            "حالة السلامة": st.column_config.TextColumn(width="medium"),
+            "الأولوية / 100": st.column_config.ProgressColumn(min_value=0, max_value=100, format="%.1f"),
+            "اكتمال البيانات %": st.column_config.NumberColumn(format="%.1f%%", width="small"),
+        },
+        height=min(560, 42 * (len(ranking) + 1)),
+        on_select="rerun",
+        selection_mode="single-row",
+        key=f"ranking_select_{study.id}_{query}_{district}_{condition}",
+    )
+    st.caption("درجة الأولوية تقيس أولوية التدخل وفق النموذج، ولا تُعدّ بحد ذاتها تقييمًا هندسيًا لسلامة المبنى.")
 
-    list_col, detail_col = st.columns([1.45, 1], gap="large")
-    with list_col:
-        st.subheader("ترتيب أولوية المراجعة")
-        st.caption(f"{len(visible)} من {len(projects)} سجلًا · الدرجة الأعلى تعني أولوية أكبر وفق النموذج الحالي. الترتيب محفوظ على مستوى الدراسة عند التصفية.")
-        ranking = ranking_table(visible, by_id)
-        selection = st.dataframe(ranking[["الترتيب", "المشروع", "الأولوية / 100", "الحالة العامة", "حالة السلامة", "اكتمال البيانات %"]], hide_index=True, use_container_width=True,
-                     column_config={
-                         "الترتيب": st.column_config.NumberColumn(width="small"),
-                         "المشروع": st.column_config.TextColumn(width="medium"),
-                         "الحالة العامة": st.column_config.TextColumn(width="small"),
-                         "حالة السلامة": st.column_config.TextColumn(width="small"),
-                         "الأولوية / 100": st.column_config.ProgressColumn(min_value=0, max_value=100, format="%.1f"),
-                         "اكتمال البيانات %": st.column_config.NumberColumn(format="%.1f%%", width="small"),
-                     }, height=610, on_select="rerun", selection_mode="single-row", key=f"ranking_select_{study.id}_{query}_{district}_{condition}")
-        st.caption("اضغط على صف لعرض ملف المشروع. الدرجة الجزئية تحتاج استكمال البيانات قبل المقارنة.")
-    with detail_col:
-        st.subheader("ملف المشروع")
-        ids = list(visible.project_id)
-        key = f"priority_project_{study.id}"
-        if st.session_state.get(key) not in ids:
-            st.session_state[key] = ids[0]
-        if selection.selection.rows:
-            selected_pid = int(visible.iloc[selection.selection.rows[0]].project_id)
-            selection_token = (query, district, condition, selected_pid)
-            if st.session_state.get(f"last_row_{study.id}") != selection_token:
-                st.session_state[key] = selected_pid
-                st.session_state[f"last_row_{study.id}"] = selection_token
-        pid = st.selectbox("المشروع", ids, format_func=lambda value: project_label(by_id[value]), key=key)
-        project = by_id[pid]
-        row = scores[scores.project_id == pid].iloc[0]
-        _detail(project, row, indicators, study)
+    st.markdown('<div class="details-section-title"><h2>تفاصيل المشروع</h2><p>اختر مشروعًا من الجدول لمراجعة المؤشرات ومساهمة كل منها في الدرجة.</p></div>', unsafe_allow_html=True)
+    ids = list(visible.project_id)
+    key = f"priority_project_{study.id}"
+    if st.session_state.get(key) not in ids:
+        st.session_state[key] = ids[0]
+    if selection.selection.rows:
+        selected_pid = int(visible.iloc[selection.selection.rows[0]].project_id)
+        selection_token = (query, district, condition, selected_pid)
+        if st.session_state.get(f"last_row_{study.id}") != selection_token:
+            st.session_state[key] = selected_pid
+            st.session_state[f"last_row_{study.id}"] = selection_token
+    pid = st.selectbox("المشروع المحدد", ids, format_func=lambda value: project_label(by_id[value]), key=key)
+    project = by_id[pid]
+    row = scores[scores.project_id == pid].iloc[0]
+    _detail(project, row, indicators, study)
 
     with st.expander("مقارنة مشروعين", expanded=False):
         ids = list(visible.project_id)
