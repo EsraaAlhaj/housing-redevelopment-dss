@@ -99,13 +99,21 @@ def score_linear_scale(raw: Any, rubric: dict) -> IndicatorResult:
 def score_threshold_bands(age_years: Optional[float], rubric: dict) -> IndicatorResult:
     if age_years is None:
         return IndicatorResult("", None, "insufficient", "", "سنة الإنشاء غير متوفرة؛ تعذر حساب العمر.")
+    if age_years < 0:
+        return IndicatorResult(
+            "", None, "insufficient", f"{age_years:.0f} سنة",
+            "العمر المحسوب سالب؛ راجع سنة الإنشاء والسنة المرجعية قبل التقييم.",
+        )
     for band in rubric.get("bands", []):
         if band["min"] <= age_years < band["max"]:
             return IndicatorResult(
                 "", float(band["score"]), "validated", f"{age_years:.0f} سنة",
                 f"العمر {age_years:.0f} سنة يقع ضمن نطاق [{band['min']}-{band['max']}) → {band['score']}/100.",
             )
-    return IndicatorResult("", 100.0, "validated", f"{age_years:.0f} سنة", "العمر يتجاوز كل النطاقات المعرفة → 100/100.")
+    return IndicatorResult(
+        "", None, "insufficient", f"{age_years:.0f} سنة",
+        "العمر خارج النطاقات العمرية المعرفة؛ راجع البيانات أو نطاقات التقييم.",
+    )
 
 
 def score_density_ratio(n_units, n_buildings, area_feddan, rubric: dict, dataset_ctx: dict) -> IndicatorResult:
