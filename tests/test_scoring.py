@@ -62,18 +62,23 @@ def test_density_ratio_missing_area_not_fabricated():
     assert r.score is None and r.status == "insufficient"
 
 
-def test_modification_extent_always_provisional_and_not_illegal_by_default():
-    rubric = {"extension_type_map": {"لا يوجد": 0, "بلكونة": 30, "افقي ورأسي": 70},
-              "reconciliation_bonus": 15, "reconciliation_keyword": "تصالح"}
+def test_modification_extent_presence_only_and_not_illegal_by_default():
+    rubric = {}
     r = score_modification_extent("يوجد", "افقي ورأسي", "لا يوجد", rubric)
-    assert r.score == 70
-    assert r.status == "provisional"  # presence != proven unauthorized
+    assert r.score == 100
+    assert r.status == "provisional"
+    assert "لا يثبت" in r.explanation
 
 
-def test_modification_extent_reconciliation_bonus():
-    rubric = {"extension_type_map": {"بلكونة": 30}, "reconciliation_bonus": 15, "reconciliation_keyword": "تصالح"}
-    r = score_modification_extent("يوجد", "بلكونة", "4 تصالح", rubric)
-    assert r.score == 45
+def test_modification_extent_absence_scores_zero():
+    r = score_modification_extent("لا يوجد", None, None, {})
+    assert r.score == 0
+    assert r.status == "provisional"
+
+
+def test_modification_extent_missing_is_not_zero():
+    r = score_modification_extent(None, None, None, {})
+    assert r.score is None and r.status == "insufficient"
 
 
 def test_infrastructure_connection_not_quality():
@@ -96,3 +101,9 @@ def test_safety_flag_warning_for_renovation_only():
 def test_safety_flag_none_when_blank():
     assert safety_flag(None)["level"] == "none"
     assert safety_flag("لا يوجد")["level"] == "none"
+
+
+def test_infrastructure_missing_one_field_is_not_assumed_disconnected():
+    r = score_infrastructure_ratio("متصل", "متصل", None, "متصل", {"connected_values": ["متصل"], "utilities": 4})
+    assert r.score is None
+    assert r.status == "insufficient"
