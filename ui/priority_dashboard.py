@@ -9,12 +9,24 @@ import streamlit as st
 
 from src.services.export_service import to_csv_bytes
 from ui.common import active_indicators, load_projects, load_scores
-from ui.theme import STATUS_LABELS_AR
+from ui.theme import STATUS_LABELS_AR, badge, render_kpi_row
+
+# Matches source values that are date/timestamp artifacts rather than real names
+# (Excel serial dates like "46157", or parsed timestamps like "2026-05-15 00:00:00").
+# Display-only: never rewrites or infers a name, only swaps the rendered label.
+_DATE_ARTIFACT_RE = re.compile(r"^\d{4}-\d{1,2}-\d{1,2}([ T]\d{1,2}:\d{2}:\d{2})?$|^\d{5}(\.0+)?$")
+
+SAFETY_ICON = {"critical": "🔴", "warning": "🟠", "none": "⚪"}
 
 
 def display_name(value) -> str:
     """Clean display artifacts without guessing names or rewriting the source."""
-    return re.sub(r"\s+", " ", str(value or "").replace("_x000D_", " ")).strip() or "اسم غير متوفر"
+    cleaned = re.sub(r"\s+", " ", str(value or "").replace("_x000D_", " ")).strip()
+    if not cleaned:
+        return "اسم غير متوفر"
+    if _DATE_ARTIFACT_RE.match(cleaned):
+        return "اسم غير صالح في المصدر (قيمة تاريخ)"
+    return cleaned
 
 
 def number(value, decimals=1) -> str:
@@ -45,14 +57,15 @@ def indicator_table(row, indicators) -> pd.DataFrame:
 
 
 def ranking_table(scores, projects) -> pd.DataFrame:
-    table = scores[["rank", "project_id", "priority_score", "completeness_pct", "classification"]].copy()
+    table = scores[["rank", "project_id", "priority_score", "completeness_pct", "classification", "safety_level"]].copy()
     table["المشروع"] = table.project_id.map(lambda pid: project_label(projects[pid]))
     table["الحي"] = table.project_id.map(lambda pid: projects[pid].district or "غير متوفر")
     table["الحالة العامة"] = table.project_id.map(lambda pid: projects[pid].general_condition or "غير متوفر")
     table["القرار المسجّل"] = table.project_id.map(lambda pid: projects[pid].building_decisions or "غير متوفر")
     table["حالة التقييم"] = table.classification.map(STATUS_LABELS_AR)
+    table["حالة السلامة"] = table.safety_level.map(lambda lvl: f"{SAFETY_ICON.get(lvl, '⚪')} {STATUS_LABELS_AR.get(lvl, lvl)}")
     table = table.rename(columns={"rank": "الترتيب", "priority_score": "الأولوية / 100", "completeness_pct": "اكتمال البيانات %"})
-    return table[["الترتيب", "المشروع", "الحي", "الأولوية / 100", "الحالة العامة",
+    return table[["الترتيب", "المشروع", "الحي", "الأولوية / 100", "الحالة العامة", "حالة السلامة",
                   "القرار المسجّل", "اكتمال البيانات %", "حالة التقييم"]]
 
 
@@ -90,18 +103,31 @@ def render(session, study) -> None:
         st.info("لا توجد مشروعات تطابق البحث. عدّل الاسم أو الحي.")
         return
 
+    status_counts = visible.classification.value_counts()
+    critical_n = int((visible.safety_level == "critical").sum())
+    flagged_n = critical_n + int((visible.safety_level == "warning").sum())
+    with st.container(border=True):
+        st.caption(f"نظرة عامة على {len(visible)} مشروعًا معروضًا")
+        render_kpi_row([
+            ("موثّق", str(int(status_counts.get("Validated", 0))), "بيانات كافية لاعتماد الدرجة", "neutral"),
+            ("مبدئي", str(int(status_counts.get("Provisional", 0))), "درجة محسوبة من مؤشرات متاحة جزئيًا", "navy"),
+            ("بيانات غير كافية", str(int(status_counts.get("Insufficient Data", 0))), "لا يمكن حساب درجة موثوقة", "neutral"),
+            ("مشروعات بقرار يستدعي الانتباه", str(flagged_n), f"{critical_n} حرج وفق القرار المسجّل", "critical" if critical_n else ("warning" if flagged_n else "neutral")),
+        ])
+
     list_col, detail_col = st.columns([1.45, 1], gap="large")
     with list_col:
         st.subheader("ترتيب أولوية المراجعة")
         st.caption(f"{len(visible)} من {len(projects)} سجلًا · الدرجة الأعلى تعني أولوية أكبر وفق النموذج الحالي. الترتيب محفوظ على مستوى الدراسة عند التصفية.")
         ranking = ranking_table(visible, by_id)
-        selection = st.dataframe(ranking[["الترتيب", "المشروع", "الأولوية / 100", "اكتمال البيانات %", "الحالة العامة"]], hide_index=True, use_container_width=True,
+        selection = st.dataframe(ranking[["الترتيب", "المشروع", "الأولوية / 100", "الحالة العامة", "حالة السلامة", "اكتمال البيانات %"]], hide_index=True, use_container_width=True,
                      column_config={
                          "الترتيب": st.column_config.NumberColumn(width="small"),
                          "المشروع": st.column_config.TextColumn(width="medium"),
                          "الحالة العامة": st.column_config.TextColumn(width="small"),
+                         "حالة السلامة": st.column_config.TextColumn(width="small"),
                          "الأولوية / 100": st.column_config.ProgressColumn(min_value=0, max_value=100, format="%.1f"),
-                         "اكتمال البيانات %": st.column_config.NumberColumn(format="%.1f%%"),
+                         "اكتمال البيانات %": st.column_config.NumberColumn(format="%.1f%%", width="small"),
                      }, height=610, on_select="rerun", selection_mode="single-row", key=f"ranking_select_{study.id}_{query}_{district}_{condition}")
         st.caption("اضغط على صف لعرض ملف المشروع. الدرجة الجزئية تحتاج استكمال البيانات قبل المقارنة.")
     with detail_col:
@@ -127,7 +153,7 @@ def render(session, study) -> None:
         if compare_key in st.session_state:
             st.session_state[compare_key] = [pid for pid in st.session_state[compare_key] if pid in ids]
         picked = st.multiselect("المشروعات للمقارنة", ids, format_func=lambda pid: project_label(by_id[pid]),
-                                max_selections=2, key=compare_key)
+                                max_selections=2, placeholder="اختر مشروعين للمقارنة", key=compare_key)
         if len(picked) == 2:
             _compare(scores, indicators, picked, by_id)
         else:
@@ -156,7 +182,12 @@ def _detail(project, row, indicators, study) -> None:
     age = study.reference_year - project.construction_year if project.construction_year is not None else None
     st.markdown(f'<div class="project-card"><div class="project-kicker">{escape(project.district or "غير متوفر")} · {escape(project.general_condition or "غير متوفر")}</div><h3>{escape(project_label(project))}</h3><div class="score-number">{number(row.priority_score)}<small> / 100</small></div><div class="project-kicker">الترتيب {row["rank"]} · {STATUS_LABELS_AR.get(row.classification, row.classification)}</div><div class="project-facts"><span><b>{number(project.n_buildings, 0)}</b> عمارة</span><span><b>{number(project.n_units, 0)}</b> وحدة</span><span><b>{number(age, 0)}</b> سنة</span></div></div>', unsafe_allow_html=True)
     st.caption(f"اكتمال البيانات: {number(row.completeness_pct)}% · اكتمال البيانات لا يعني توثيق القياس")
-    st.markdown(f'<div class="decision-note">القرار الرسمي المسجّل <strong>{escape(project.building_decisions or "غير متوفر")}</strong></div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="decision-note">{badge(row.safety_level)}'
+        f'<div style="margin-top:8px;">القرار الرسمي المسجّل <strong>{escape(project.building_decisions or "غير متوفر")}</strong></div>'
+        f'<div style="font-size:.7rem; color:#7C8C9C; margin-top:6px;">الشارة تعكس تصنيف القرار المسجّل حاليًا في النظام، ولا تمثل تقييم سلامة هندسي مستقل.</div></div>',
+        unsafe_allow_html=True,
+    )
     st.markdown("**ما الذي يفسّر الدرجة؟**")
     bars = []
     for ind in indicators:
