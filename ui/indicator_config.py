@@ -19,7 +19,7 @@ SUPPORTED_METHODS = {
 
 def render(session, study) -> None:
     st.header("إعداد المؤشرات")
-    st.caption("الأوزان الرسمية السبعة تبقى متاحة كأساس ثابت دائمًا. أي تعديل هنا يخص الدراسة الحالية فقط.")
+    st.caption("الأوزان الأساسية للمؤشرات الستة حسب ملف التقييم الأخير. أي تعديل هنا يخص الدراسة الحالية فقط.")
 
     indicators = study_service.list_indicators(session, study.id)
 
