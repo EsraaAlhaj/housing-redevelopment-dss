@@ -1,4 +1,4 @@
-"""Official 7-indicator framework (Port Said housing redevelopment priority).
+"""Six-indicator framework aligned with the latest reviewed scoring workbook (Port Said housing redevelopment priority).
 
 This module defines the immutable BASELINE weights/rubrics. They are copied into
 each new Study's IndicatorConfig rows, where they may be freely edited per-study
@@ -43,7 +43,7 @@ OFFICIAL_INDICATORS = [
         "code": "strategic",
         "name_ar": "الأهمية الاستراتيجية للموقع",
         "name_en": "Strategic Importance",
-        "weight": 15,
+        "weight": 20,
         "normalization_method": "linear_scale",
         "always_provisional": False,
         "source_columns": ["الأهميه الأستراتيجيه"],
@@ -108,20 +108,6 @@ OFFICIAL_INDICATORS = [
         ),
     },
     {
-        "code": "urban_env",
-        "name_ar": "جودة البيئة العمرانية والفراغات العامة",
-        "name_en": "Urban Environment & Public Space Quality",
-        "weight": 5,
-        "normalization_method": "manual_assessment_only",
-        "always_provisional": False,
-        "source_columns": [],
-        "rubric": {},
-        "description": (
-            "لا تتوفر في المصدر قياسات للمساحات المفتوحة أو جودة الفراغات العامة. "
-            "بيانات ناقصة افتراضيًا حتى يُدخل مقيّم بيانات ميدانية موثقة بمصدرها."
-        ),
-    },
-    {
         "code": "infrastructure",
         "name_ar": "حالة المرافق والبنية الأساسية",
         "name_en": "Infrastructure and Basic Services",
@@ -141,6 +127,7 @@ OFFICIAL_INDICATORS = [
 ]
 
 TOTAL_OFFICIAL_WEIGHT = sum(i["weight"] for i in OFFICIAL_INDICATORS)
+assert len(OFFICIAL_INDICATORS) == 6
 assert TOTAL_OFFICIAL_WEIGHT == 100
 
 CRITICAL_DECISION_KEYWORDS = {
