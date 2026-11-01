@@ -118,6 +118,33 @@ html, body, [data-testid="stApp"] p, [data-testid="stApp"] label, [data-testid="
 .indicator-meta {{ color:#7C8C9C; font-size:.68rem; margin-top:4px; }}
 [data-testid="stExpander"] {{ background:#fff; border-radius:12px; }}
 @media (max-width: 900px) {{ [data-testid="stHorizontalBlock"] {{ flex-wrap:wrap; }} [data-testid="stColumn"] {{ min-width:min(100%, 340px); }} }}
+
+/* Figma-aligned refinement: clearer Arabic typography and spacing */
+.block-container { padding-top: 1.25rem; }
+.decision-heading { padding: 18px 24px; margin-bottom: 10px; }
+.decision-heading h1 { font-size: 1.8rem; line-height: 1.55; }
+.decision-heading p { font-size: 1rem; line-height: 1.8; }
+.scope-strip { font-size: .9rem; padding: 10px 2px 14px; }
+.results-heading, .details-section-title { margin-top: 22px; margin-bottom: 10px; }
+.results-heading h2, .details-section-title h2 { font-size: 1.3rem; }
+.results-heading p, .details-section-title p { font-size: .92rem; line-height: 1.85; }
+.results-count { font-size: .85rem; padding: 7px 12px; }
+[data-testid="stDataFrame"] { border: 1px solid #D8E2EA; border-radius: 10px; overflow: hidden; }
+.project-card { padding: 24px; }
+.project-card h3 { font-size: 1.3rem; }
+.project-facts { font-size: .88rem; }
+.indicator-row { margin-bottom: 16px; }
+.indicator-label { font-size: .9rem; }
+.indicator-meta { font-size: .75rem; line-height: 1.6; }
+.decision-note { line-height: 1.75; }
+@media (max-width: 700px) {
+  .decision-heading { padding: 14px 16px; }
+  .decision-heading h1 { font-size: 1.45rem; }
+  .results-heading, .details-section-title { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .project-card { padding: 16px; }
+  .score-number { font-size: 2.35rem; }
+}
+
 </style>
 """
 
