@@ -122,7 +122,7 @@ def render(session, study) -> None:
             "الأولوية / 100": st.column_config.ProgressColumn(min_value=0, max_value=100, format="%.1f"),
             "اكتمال البيانات %": st.column_config.NumberColumn(format="%.1f%%", width="small"),
         },
-        height=min(560, 42 * (len(ranking) + 1)),
+        height=min(720, max(252, 42 * (len(ranking) + 1))),
         on_select="rerun",
         selection_mode="single-row",
         key=f"ranking_select_{study.id}_{query}_{district}_{condition}",
